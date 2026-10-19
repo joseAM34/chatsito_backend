@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
@@ -11,4 +6,85 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model archivos {
+  id_archivo        BigInt   @id @default(autoincrement())
+  id_mensaje        BigInt   @unique
+  tipo_mensaje      String   @default("audio") @db.VarChar(10)
+  nombre            String   @db.VarChar(255)
+  formato           String   @db.VarChar(100)
+  tamano_bytes      BigInt
+  duracion_segundos Int?
+  object_key        String   @unique
+  mensajes          mensajes @relation(fields: [id_mensaje, tipo_mensaje], references: [id_mensaje, tipo], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_mensaje, tipo_mensaje])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model conversaciones {
+  id_conversacion BigInt          @id @default(autoincrement())
+  tipo            String          @db.VarChar(10)
+  nombre          String?         @db.VarChar(100)
+  fecha_creacion  DateTime        @default(now()) @db.Timestamptz(6)
+  participantes   participantes[]
+}
+
+model lecturas_mensajes {
+  id_conversacion BigInt
+  id_mensaje      BigInt
+  id_usuario      BigInt
+  fecha_lectura   DateTime      @default(now()) @db.Timestamptz(6)
+  mensajes        mensajes      @relation(fields: [id_conversacion, id_mensaje], references: [id_conversacion, id_mensaje], onDelete: Cascade, onUpdate: NoAction)
+  participantes   participantes @relation(fields: [id_conversacion, id_usuario], references: [id_conversacion, id_usuario], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id_mensaje, id_usuario])
+  @@index([id_usuario], map: "idx_lecturas_usuario")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model mensajes {
+  id_mensaje        BigInt              @id @default(autoincrement())
+  id_conversacion   BigInt
+  id_remitente      BigInt
+  contenido         String?
+  tipo              String              @default("texto") @db.VarChar(10)
+  fecha_envio       DateTime            @default(now()) @db.Timestamptz(6)
+  editado_en        DateTime?           @db.Timestamptz(6)
+  reenviado_de_id   BigInt?
+  archivos          archivos?
+  lecturas_mensajes lecturas_mensajes[]
+  participantes     participantes       @relation(fields: [id_conversacion, id_remitente], references: [id_conversacion, id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  mensajes          mensajes?           @relation("mensajesTomensajes", fields: [reenviado_de_id], references: [id_mensaje], onUpdate: NoAction)
+  other_mensajes    mensajes[]          @relation("mensajesTomensajes")
+
+  @@unique([id_conversacion, id_mensaje])
+  @@unique([id_mensaje, tipo])
+  @@index([id_conversacion, fecha_envio], map: "idx_mensajes_conversacion_fecha")
+  @@index([id_remitente], map: "idx_mensajes_remitente")
+}
+
+model participantes {
+  id_conversacion   BigInt
+  id_usuario        BigInt
+  fecha_union       DateTime            @default(now()) @db.Timestamptz(6)
+  lecturas_mensajes lecturas_mensajes[]
+  mensajes          mensajes[]
+  conversaciones    conversaciones      @relation(fields: [id_conversacion], references: [id_conversacion], onDelete: Cascade, onUpdate: NoAction)
+  usuarios          usuarios            @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id_conversacion, id_usuario])
+  @@index([id_usuario], map: "idx_participantes_usuario")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model usuarios {
+  id_usuario     BigInt          @id @default(autoincrement())
+  nombre         String          @db.VarChar(100)
+  correo         String          @db.VarChar(150)
+  password_hash  String
+  fecha_registro DateTime        @default(now()) @db.Timestamptz(6)
+  participantes  participantes[]
 }
