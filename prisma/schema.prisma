@@ -87,4 +87,6 @@ model usuarios {
   password_hash  String
   fecha_registro DateTime        @default(now()) @db.Timestamptz(6)
   participantes  participantes[]
+
+  @@unique([correo])
 }
