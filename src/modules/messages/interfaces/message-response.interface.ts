@@ -1,3 +1,11 @@
+export interface Archivo {
+  id_archivo: string;
+  nombre: string;
+  formato: string;
+  tamano_bytes: number;
+  duracion_segundos: number | null;
+}
+
 export interface MessageResponse {
   id_mensaje: string;
   id_conversacion: string;
@@ -12,4 +20,5 @@ export interface MessageResponse {
     nombre: string;
   };
   leido_por: string[];
+  archivo: Archivo | null;
 }
