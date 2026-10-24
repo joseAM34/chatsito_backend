@@ -199,11 +199,13 @@ export class ConversationsService {
   }
 
   async findAll(currentUser: CurrentUser) {
+    const idUsuario = BigInt(currentUser.id_usuario);
+
     const conversations = await this.prisma.conversaciones.findMany({
       where: {
         participantes: {
           some: {
-            id_usuario: BigInt(currentUser.id_usuario),
+            id_usuario: idUsuario,
           },
         },
       },
@@ -224,11 +226,27 @@ export class ConversationsService {
       },
     });
 
+    //cuántos mensajes sin leer tiene el usuario en cada conversación
+    const pendientes = await this.prisma.mensajes.groupBy({
+      by: ['id_conversacion'],
+      where: {
+        id_conversacion: { in: conversations.map((c) => c.id_conversacion) },
+        id_remitente: { not: idUsuario },
+        lecturas_mensajes: { none: { id_usuario: idUsuario } },
+      },
+      _count: { _all: true },
+    });
+
+    const noLeidosPorConversacion = new Map(
+      pendientes.map((p) => [p.id_conversacion.toString(), p._count._all]),
+    );
+
     return conversations.map((conv) => ({
       id_conversacion: conv.id_conversacion.toString(),
       tipo: conv.tipo,
       nombre: conv.nombre,
       fecha_creacion: conv.fecha_creacion,
+      noLeidos: noLeidosPorConversacion.get(conv.id_conversacion.toString()) ?? 0, // 👈 nuevo
       participantes: conv.participantes.map((p) => ({
         id_usuario: p.usuarios.id_usuario.toString(),
         nombre: p.usuarios.nombre,
