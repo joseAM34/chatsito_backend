@@ -168,6 +168,7 @@ export class MessagesService {
         tipo: msg.tipo,
         fecha_envio: msg.fecha_envio,
         editado_en: msg.editado_en,
+        eliminado_en: msg.eliminado_en,
         reenviado_de_id: msg.reenviado_de_id?.toString() ?? null,
         remitente: {
           id_usuario: remitente!.id_usuario.toString(),
@@ -199,12 +200,14 @@ export class MessagesService {
       throw new ForbiddenException('Solo el remitente puede editar el mensaje');
     }
 
+    if (message.eliminado_en) throw new BadRequestException('El mensaje fue eliminado');
+
     if (message.tipo !== 'texto') {
       throw new BadRequestException('Solo se pueden editar mensajes de texto');
     }
 
-    if (Date.now() >= message.fecha_envio.getTime() + 15 * 60 * 1000) {
-      throw new ForbiddenException('El plazo de 15 minutos para editar este mensaje ha terminado');
+    if (Date.now() >= message.fecha_envio.getTime() + 10 * 60 * 1000) {
+      throw new ForbiddenException('El plazo de 10 minutos para editar este mensaje ha terminado');
     }
 
     const updated: MessageWithArchivo = await this.prisma.mensajes.update({
@@ -234,6 +237,19 @@ export class MessagesService {
     return this.toMessageResponseWithRemitente(updated, remitente);
   }
 
+  async deleteMessage(messageId: string, currentUser: CurrentUser) {
+    const message = await this.prisma.mensajes.findUnique({ where: { id_mensaje: BigInt(messageId) } });
+    if (!message) throw new NotFoundException('Mensaje no encontrado');
+    if (message.id_remitente !== BigInt(currentUser.id_usuario)) throw new ForbiddenException('Solo el autor puede eliminar el mensaje');
+    if (message.eliminado_en) return { id_mensaje: messageId, id_conversacion: message.id_conversacion.toString() };
+    if (Date.now() >= message.fecha_envio.getTime() + 5 * 60 * 1000) throw new ForbiddenException('El plazo de 5 minutos para eliminar este mensaje ha terminado');
+    await this.prisma.mensajes.update({
+      where: { id_mensaje: message.id_mensaje },
+      data: { eliminado_en: new Date(), contenido: message.tipo === 'texto' ? 'Este mensaje fue eliminado' : null },
+    });
+    return { id_mensaje: messageId, id_conversacion: message.id_conversacion.toString() };
+  }
+
   async forwardMessage(
     messageId: string,
     dto: ForwardMessageDto,
@@ -251,6 +267,8 @@ export class MessagesService {
     if (!originalMessage) {
       throw new NotFoundException('Mensaje no encontrado');
     }
+
+    if (originalMessage.eliminado_en) throw new BadRequestException('El mensaje fue eliminado');
 
     if (originalMessage.tipo !== 'texto') {
       throw new BadRequestException('Solo se pueden reenviar mensajes de texto');
@@ -394,6 +412,7 @@ export class MessagesService {
       tipo: message.tipo,
       fecha_envio: message.fecha_envio,
       editado_en: message.editado_en,
+      eliminado_en: message.eliminado_en,
       reenviado_de_id: message.reenviado_de_id?.toString() ?? null,
       remitente: {
         id_usuario: remitente.id_usuario.toString(),

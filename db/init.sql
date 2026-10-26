@@ -41,6 +41,7 @@ CREATE TABLE mensajes (
         CHECK (tipo IN ('texto', 'audio')),
     fecha_envio     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     editado_en      TIMESTAMPTZ,
+    eliminado_en    TIMESTAMPTZ,
     reenviado_de_id BIGINT
         REFERENCES mensajes(id_mensaje) ON DELETE SET NULL,
 

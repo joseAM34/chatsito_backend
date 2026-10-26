@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Patch, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -63,6 +63,12 @@ export class MessagesController {
 @UseGuards(JwtAuthGuard)
 export class MessagesControllerV2 {
   constructor(private readonly messagesService: MessagesService) {}
+
+  @Delete(':id')
+  async deleteMessage(@Param('id') id: string, @CurrentUser() user: CurrentUser) {
+    if (!/^\d+$/.test(id)) throw new BadRequestException('id inv?lido');
+    return this.messagesService.deleteMessage(id, user);
+  }
 
   @Patch(':id')
   async updateMessage(

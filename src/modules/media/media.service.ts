@@ -235,9 +235,9 @@ export class MediaService implements OnModuleInit {
 
     const mensaje = await this.prisma.mensajes.findUnique({
       where: { id_mensaje: idMensaje },
-      select: { id_conversacion: true },
+      select: { id_conversacion: true, eliminado_en: true },
     });
-    if (mensaje === null) {
+    if (mensaje === null || mensaje.eliminado_en !== null) {
       throw new NotFoundException('Audio no encontrado');
     }
 

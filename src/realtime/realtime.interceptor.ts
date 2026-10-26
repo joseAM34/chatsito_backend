@@ -11,7 +11,7 @@ export class RealtimeInterceptor implements NestInterceptor {
     if (context.getType() !== 'http') return next.handle();
     const request = context.switchToHttp().getRequest<Request>();
     const path = request.path;
-    if (!['POST', 'PATCH'].includes(request.method) ||
+    if (!['POST', 'PATCH', 'DELETE'].includes(request.method) ||
         !/^\/api\/(conversations|messages|media\/messages)(\/|$)/.test(path)) return next.handle();
     return next.handle().pipe(mergeMap(async (result: unknown) => {
       const data = result as { id_conversacion?: string | bigint; marcados?: number } | null;

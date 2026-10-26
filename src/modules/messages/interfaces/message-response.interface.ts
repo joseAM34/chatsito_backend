@@ -13,6 +13,7 @@ export interface MessageResponse {
   contenido: string | null;
   tipo: string;
   fecha_envio: Date;
+  eliminado_en?: Date | null;
   editado_en: Date | null;
   reenviado_de_id: string | null;
   remitente: {
