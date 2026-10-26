@@ -203,6 +203,10 @@ export class MessagesService {
       throw new BadRequestException('Solo se pueden editar mensajes de texto');
     }
 
+    if (Date.now() >= message.fecha_envio.getTime() + 15 * 60 * 1000) {
+      throw new ForbiddenException('El plazo de 15 minutos para editar este mensaje ha terminado');
+    }
+
     const updated: MessageWithArchivo = await this.prisma.mensajes.update({
       where: { id_mensaje: messageIdBigInt },
       data: {
