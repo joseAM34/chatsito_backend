@@ -4,8 +4,15 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { ForwardMessageDto } from './dto/forward-message.dto';
-import { MessageResponse } from './interfaces/message-response.interface';
+import { MessageResponse, Archivo } from './interfaces/message-response.interface';
 import { Prisma } from '../../generated/prisma/client';
+
+type MessageWithArchivo = Prisma.mensajesGetPayload<{
+  include: {
+    archivos: true;
+    lecturas_mensajes: true;
+  };
+}>;
 
 @Injectable()
 export class MessagesService {
@@ -34,12 +41,16 @@ export class MessagesService {
     }
 
     // Crear mensaje
-    const message = await this.prisma.mensajes.create({
+    const message: MessageWithArchivo = await this.prisma.mensajes.create({
       data: {
         id_conversacion: conversationIdBigInt,
         id_remitente: currentUserIdBigInt,
         contenido: dto.contenido,
         tipo: 'texto',
+      },
+      include: {
+        archivos: true,
+        lecturas_mensajes: true,
       },
     });
 
@@ -104,14 +115,11 @@ export class MessagesService {
       orderBy = { id_mensaje: 'desc' };
     }
 
-    const messages = await this.prisma.mensajes.findMany({
+    const messages: MessageWithArchivo[] = await this.prisma.mensajes.findMany({
       where,
       include: {
-        lecturas_mensajes: {
-          select: {
-            id_usuario: true,
-          },
-        },
+        lecturas_mensajes: true,
+        archivos: true,
       },
       orderBy,
       take: limitNumber,
@@ -136,11 +144,21 @@ export class MessagesService {
       remitentes.map((r) => [r.id_usuario.toString(), r]),
     );
 
-    return reversed.map((msg) => {
+    return reversed.map((msg: MessageWithArchivo) => {
       const remitente = remitenteMap.get(msg.id_remitente.toString());
       const leidoPor = msg.lecturas_mensajes
-        ? msg.lecturas_mensajes.map((lm: any) => lm.id_usuario.toString())
+        ? msg.lecturas_mensajes.map((lm) => lm.id_usuario.toString())
         : [];
+
+      const archivo: Archivo | null = msg.archivos
+        ? {
+            id_archivo: msg.archivos.id_archivo.toString(),
+            nombre: msg.archivos.nombre,
+            formato: msg.archivos.formato,
+            tamano_bytes: Number(msg.archivos.tamano_bytes),
+            duracion_segundos: msg.archivos.duracion_segundos,
+          }
+        : null;
 
       return {
         id_mensaje: msg.id_mensaje.toString(),
@@ -156,6 +174,7 @@ export class MessagesService {
           nombre: remitente!.nombre,
         },
         leido_por: leidoPor,
+        archivo,
       };
     });
   }
@@ -184,11 +203,15 @@ export class MessagesService {
       throw new BadRequestException('Solo se pueden editar mensajes de texto');
     }
 
-    const updated = await this.prisma.mensajes.update({
+    const updated: MessageWithArchivo = await this.prisma.mensajes.update({
       where: { id_mensaje: messageIdBigInt },
       data: {
         contenido: dto.contenido,
         editado_en: new Date(),
+      },
+      include: {
+        archivos: true,
+        lecturas_mensajes: true,
       },
     });
 
@@ -258,13 +281,17 @@ export class MessagesService {
     }
 
     // Crear mensaje reenviado
-    const forwarded = await this.prisma.mensajes.create({
+    const forwarded: MessageWithArchivo = await this.prisma.mensajes.create({
       data: {
         id_conversacion: destinationConversationIdBigInt,
         id_remitente: currentUserIdBigInt,
         contenido: originalMessage.contenido,
         tipo: 'texto',
         reenviado_de_id: messageIdBigInt,
+      },
+      include: {
+        archivos: true,
+        lecturas_mensajes: true,
       },
     });
 
@@ -337,10 +364,23 @@ export class MessagesService {
     return { marcados: unreadMessages.length };
   }
 
-  private toMessageResponseWithRemitente(message: any, remitente: any): MessageResponse {
+  private toMessageResponseWithRemitente(
+    message: MessageWithArchivo,
+    remitente: { id_usuario: bigint; nombre: string },
+  ): MessageResponse {
     const leidoPor = message.lecturas_mensajes
-      ? message.lecturas_mensajes.map((lm: any) => lm.id_usuario.toString())
+      ? message.lecturas_mensajes.map((lm) => lm.id_usuario.toString())
       : [];
+
+    const archivo: Archivo | null = message.archivos
+      ? {
+          id_archivo: message.archivos.id_archivo.toString(),
+          nombre: message.archivos.nombre,
+          formato: message.archivos.formato,
+          tamano_bytes: Number(message.archivos.tamano_bytes),
+          duracion_segundos: message.archivos.duracion_segundos,
+        }
+      : null;
 
     return {
       id_mensaje: message.id_mensaje.toString(),
@@ -356,6 +396,7 @@ export class MessagesService {
         nombre: remitente.nombre,
       },
       leido_por: leidoPor,
+      archivo,
     };
   }
 }
