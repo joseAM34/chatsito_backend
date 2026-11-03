@@ -12,6 +12,18 @@ describe('Realtime HTTP notifications', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it.each(['/api/conversations/12/messages', '/api/conversations/12/audio', '/api/messages/90/forward'])('identifies a new message for sound: %s', async path => {
+    await lastValueFrom(interceptor.intercept(context('POST', path),
+      { handle: () => of({ id_conversacion: '12', id_mensaje: '91', id_remitente: '7' }) }));
+    expect(changed).toHaveBeenCalledWith('12', 'message', { messageId: '91', senderId: '7' });
+  });
+
+  it.each(['PATCH', 'DELETE'])('does not identify %s as a new message', async method => {
+    await lastValueFrom(interceptor.intercept(context(method, '/api/messages/90'),
+      { handle: () => of({ id_conversacion: '12', id_mensaje: '90', id_remitente: '7' }) }));
+    expect(changed).toHaveBeenCalledWith('12', 'message');
+  });
+
   it('emits after a successful message write', async () => {
     const result = { id_conversacion: '12', id_mensaje: '90' };
     const response = await lastValueFrom(interceptor.intercept(context('POST', '/api/conversations/12/messages'),

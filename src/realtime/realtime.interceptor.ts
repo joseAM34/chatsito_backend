@@ -14,11 +14,17 @@ export class RealtimeInterceptor implements NestInterceptor {
     if (!['POST', 'PATCH', 'DELETE'].includes(request.method) ||
         !/^\/api\/(conversations|messages|media\/messages)(\/|$)/.test(path)) return next.handle();
     return next.handle().pipe(mergeMap(async (result: unknown) => {
-      const data = result as { id_conversacion?: string | bigint; marcados?: number } | null;
+      const data = result as { id_conversacion?: string | bigint; id_mensaje?: string | bigint; id_remitente?: string | bigint; marcados?: number } | null;
       const id = data?.id_conversacion?.toString() ?? /^\/api\/conversations\/(\d+)/.exec(path)?.[1];
       if (id && /^\d+$/.test(id) && data?.marcados !== 0) {
-        await this.realtime.changed(id, path.endsWith('/read') ? 'read' :
-          /messages|audio/.test(path) ? 'message' : 'conversation');
+        const kind = path.endsWith('/read') ? 'read' : /messages|audio/.test(path) ? 'message' : 'conversation';
+        if (request.method === 'POST' && data?.id_mensaje != null && data.id_remitente != null) {
+          await this.realtime.changed(id, kind, {
+            messageId: data.id_mensaje.toString(), senderId: data.id_remitente.toString(),
+          });
+        } else {
+          await this.realtime.changed(id, kind);
+        }
       }
       return result;
     }));

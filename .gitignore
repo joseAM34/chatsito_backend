@@ -46,7 +46,7 @@ lerna-debug.log*
 .env.local
 .env.*
 !.env.example
-
+.env.docker
 # uploads directory
 uploads/
 

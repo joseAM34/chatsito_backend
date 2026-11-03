@@ -34,13 +34,14 @@ export class RealtimeGateway implements OnGatewayInit {
     });
   }
 
-  async changed(conversationId: string, kind: 'message' | 'read' | 'conversation') {
+  async changed(conversationId: string, kind: 'message' | 'read' | 'conversation', created?: { messageId: string; senderId: string }) {
     try {
       const participants = await this.prisma.participantes.findMany({
         where: { id_conversacion: BigInt(conversationId) }, select: { id_usuario: true },
       });
       const rooms = participants.map(p => `user:${p.id_usuario}`);
       if (rooms.length) this.server.to(rooms).emit('chat:changed', { conversationId, kind });
+      if (rooms.length && created) this.server.to(rooms).emit('chat:message', { conversationId, ...created });
     } catch {
       // A notification failure must not turn a committed write into an HTTP failure.
       this.logger.error('No se pudo notificar el cambio de conversación');
